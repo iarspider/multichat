@@ -7,17 +7,70 @@ import random
 import string
 import uuid
 import webbrowser
+import queue
+from enum import IntEnum, auto
+from dataclasses import dataclass
+from typing import List
 from urllib.parse import urlparse, parse_qs
 
 import requests
 from dotenv import load_dotenv
-from websockets.client import connect # noqa
+from websockets.client import connect  # noqa
 
 trovo_redirect_url = "https://fr.iarazumov.com/trovo"
 
 import http.client as http_client
 
 http_client.HTTPConnection.debuglevel = 1
+
+event_queue = queue.SimpleQueue()
+
+
+class Service(IntEnum):
+    twitch = auto()
+    trovo = auto()
+
+
+@dataclass(kw_only=True)
+class UserJoined:
+    user: str
+    is_sub: bool
+
+
+@dataclass(kw_only=True)
+class UserParted:
+    user: str
+
+
+@dataclass(kw_only=True)
+class UserChatMessage:
+    user: str
+    service: Service
+    message: str
+
+
+@dataclass(kw_only=True)
+class UserCommand:
+    user: str
+    service: Service
+    command: str
+    args: str | List[str]
+
+
+@dataclass(kw_only=True)
+class BotMessage:
+    service: Service
+    message: str
+
+@dataclass(kw_only=True)
+class TwitchReward:
+    user: str
+    reward: str
+
+@dataclass(kw_only=True)
+class TrovoSpell:
+    user: str
+    reward: str
 
 
 def random_string(size):
@@ -210,7 +263,9 @@ async def hello_twitch():
                     continue
 
                 if msg_data["command"]["command"] == "PING":
-                    await websocket.send(f"PONG {msg_data['parameters']}")
+                    asyncio.ensure_future(
+                        websocket.send(f"PONG {msg_data['parameters']}")
+                    )
                 elif msg_data["command"]["command"] == "PRIVMSG":
                     print(
                         f"{msg_data['source']['nick']} sent message "
